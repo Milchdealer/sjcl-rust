@@ -13,20 +13,22 @@
 //!
 //! Decrypt a file loaded into a string:
 //! ```rust
-//! use sjcl::decrypt_raw;
-//!
-//! let data = "{\"iv\":\"nJu7KZF2eEqMv403U2oc3w==\", \"v\":1, \"iter\":10000, \"ks\":256, \"ts\":64, \"mode\":\"ccm\", \"adata\":\"\", \"cipher\":\"aes\", \"salt\":\"mMmxX6SipEM=\", \"ct\":\"VwnKwpW1ah5HmdvwuFBthx0=\"}".to_string();
-//! let password_phrase = "abcdefghi".to_string();
-//! let plaintext = decrypt_raw(data, password_phrase)?;
+//! use sjcl::{decrypt_raw, SjclError};
+//! # fn main() -> Result<(), SjclError> {
+//!     let data = "{\"iv\":\"nJu7KZF2eEqMv403U2oc3w==\", \"v\":1, \"iter\":10000, \"ks\":256, \"ts\":64, \"mode\":\"ccm\", \"adata\":\"\", \"cipher\":\"aes\", \"salt\":\"mMmxX6SipEM=\", \"ct\":\"VwnKwpW1ah5HmdvwuFBthx0=\"}".to_string();
+//!     let password_phrase = "abcdefghi".to_string();
+//!     let plaintext = decrypt_raw(data, password_phrase)?;
+//! #   Ok(())
+//! # }
 //! ```
 //!
 //! This will give you the plaintext `test\ntest`.
 extern crate base64;
 
-use aes::{Aes128, Aes256};
+use aes::{Aes128, Aes192, Aes256};
 use ccm::aead::{generic_array::GenericArray, Aead, NewAead};
 use ccm::{
-    consts::{U13, U16, U32, U8},
+    consts::{U13, U16, U24, U32, U8},
     Ccm,
 };
 use password_hash::{PasswordHasher, SaltString};
@@ -60,6 +62,7 @@ pub struct SjclBlockJson {
 
 type AesCcm256 = Ccm<Aes256, U8, U13>;
 type AesCcm128 = Ccm<Aes128, U8, U13>;
+type AesCcm192 = Ccm<Aes192, U8, U13>;
 
 /// Decrypts a chunk of SJCL encrypted JSON with a given passphrase.
 pub fn decrypt_raw(chunk: String, key: String) -> Result<String, SjclError> {
@@ -178,6 +181,20 @@ pub fn decrypt(mut chunk: SjclBlockJson, key: String) -> Result<String, SjclErro
                             };
                             Ok(String::from_utf8(plaintext).unwrap())
                         }
+                        192 => {
+                            let key: &GenericArray<u8, U24> =
+                                GenericArray::from_slice(password_hash.as_bytes());
+                            let cipher = AesCcm192::new(key);
+                            let plaintext = match cipher.decrypt(nonce, ct.as_ref()) {
+                                Ok(pt) => pt,
+                                Err(_) => {
+                                    return Err(SjclError::DecryptionError {
+                                        message: "Failed to decrypt ciphertext".to_string(),
+                                    });
+                                }
+                            };
+                            Ok(String::from_utf8(plaintext).unwrap())
+                        }
                         128 => {
                             let key: &GenericArray<u8, U16> =
                                 GenericArray::from_slice(password_hash.as_bytes());
@@ -209,7 +226,7 @@ mod tests {
     use crate::{decrypt, decrypt_raw, SjclBlockJson};
 
     #[test]
-    fn test_end_to_end() {
+    fn test_256bit_end_to_end() {
         let data = "{\"iv\":\"nJu7KZF2eEqMv403U2oc3w==\", \"v\":1, \"iter\":10000, \"ks\":256, \"ts\":64, \"mode\":\"ccm\", \"adata\":\"\", \"cipher\":\"aes\", \"salt\":\"mMmxX6SipEM=\", \"ct\":\"VwnKwpW1ah5HmdvwuFBthx0=\"}".to_string();
         let password_phrase = "abcdefghi".to_string();
 
@@ -219,7 +236,7 @@ mod tests {
     }
 
     #[test]
-    fn test_with_struct() {
+    fn test_256bit_with_struct() {
         let data = SjclBlockJson {
             iv: "nJu7KZF2eEqMv403U2oc3w".to_string(),
             v: 1,
@@ -235,6 +252,68 @@ mod tests {
         let password_phrase = "abcdefghi".to_string();
 
         let plaintext = "test\ntest".to_string();
+
+        assert_eq!(decrypt(data, password_phrase).unwrap(), plaintext);
+    }
+
+    #[test]
+    fn test_192bit_end_to_end() {
+        let data = "{\"iv\":\"rUeOzcoSOAmbJIZ4o7wZzA==\", \"v\":1, \"iter\":1000, \"ks\":192, \"ts\":64, \"mode\":\"ccm\", \"adata\":\"\", \"cipher\":\"aes\", \"salt\":\"qpVeWJh4g1I=\", \"ct\":\"QJx31ojP+TW25eYZSFnjrG85dOZY\"}".to_string();
+        let password_phrase = "abcdefghi".to_string();
+
+        let plaintext = "cats are cute".to_string();
+
+        assert_eq!(decrypt_raw(data, password_phrase).unwrap(), plaintext);
+    }
+
+    #[test]
+    fn test_192bit_with_struct() {
+        let data = SjclBlockJson {
+            iv: "rUeOzcoSOAmbJIZ4o7wZzA==".to_string(),
+            v: 1,
+            iter: 1000,
+            ks: 192,
+            ts: 64,
+            mode: "ccm".to_string(),
+            adata: "".to_string(),
+            cipher: "aes".to_string(),
+            salt: "qpVeWJh4g1I=".to_string(),
+            ct: "QJx31ojP+TW25eYZSFnjrG85dOZY".to_string(),
+        };
+        let password_phrase = "abcdefghi".to_string();
+
+        let plaintext = "cats are cute".to_string();
+
+        assert_eq!(decrypt(data, password_phrase).unwrap(), plaintext);
+    }
+
+    #[test]
+    fn test_128bit_end_to_end() {
+        let data = "{\"iv\":\"aDvOWpwgcF0S7YDvu3TrTQ==\", \"v\":1, \"iter\":1000, \"ks\":128, \"ts\":64, \"mode\":\"ccm\", \"adata\":\"\", \"cipher\":\"aes\", \"salt\":\"qpVeWJh4g1I=\", \"ct\":\"3F6gxac5V5k39iUNHubqEOHrxuZJqoX2zyws9nU=\"}".to_string();
+        let password_phrase = "abcdefghi".to_string();
+
+        let plaintext = "but dogs are the best".to_string();
+
+        assert_eq!(decrypt_raw(data, password_phrase).unwrap(), plaintext);
+    }
+
+    #[test]
+    fn test_128bit_with_struct() {
+        let data = SjclBlockJson {
+            iv: "aDvOWpwgcF0S7YDvu3TrTQ==".to_string(),
+            v: 1,
+            iter: 1000,
+            ks: 128,
+            ts: 64,
+            mode: "ccm".to_string(),
+            adata: "".to_string(),
+            cipher: "aes".to_string(),
+            salt: "qpVeWJh4g1I=".to_string(),
+            ct: "3F6gxac5V5k39iUNHubqEOHrxuZJqoX2zyws9nU=".to_string(),
+        };
+        let password_phrase = "abcdefghi".to_string();
+
+        let plaintext = "but dogs are the best".to_string();
 
         assert_eq!(decrypt(data, password_phrase).unwrap(), plaintext);
     }
