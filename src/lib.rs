@@ -3,26 +3,23 @@
 //!
 //! Only supports AES-CCM so far, but OCB2 is deprecated AFAIK.
 //! To use you only need the result of a SJCL encrypted secret and the
-//! passphrase:
+//! passphrase.
 //!
 //! ## Usage
-//! Packagename for your `Cargo.toml`:
-//! ```toml
-//! sjcl = "0.0.1"
-//! ```
 //!
 //! Decrypt a file loaded into a string:
 //! ```rust
 //! use sjcl::{decrypt_raw, SjclError};
+//! 
 //! # fn main() -> Result<(), SjclError> {
-//!     let data = "{\"iv\":\"nJu7KZF2eEqMv403U2oc3w==\", \"v\":1, \"iter\":10000, \"ks\":256, \"ts\":64, \"mode\":\"ccm\", \"adata\":\"\", \"cipher\":\"aes\", \"salt\":\"mMmxX6SipEM=\", \"ct\":\"VwnKwpW1ah5HmdvwuFBthx0=\"}".to_string();
-//!     let password_phrase = "abcdefghi".to_string();
-//!     let plaintext = decrypt_raw(data, password_phrase)?;
-//! #   Ok(())
+//!   let data = "{\"iv\":\"nJu7KZF2eEqMv403U2oc3w==\", \"v\":1, \"iter\":10000, \"ks\":256, \"ts\":64, \"mode\":\"ccm\", \"adata\":\"\", \"cipher\":\"aes\", \"salt\":\"mMmxX6SipEM=\", \"ct\":\"VwnKwpW1ah5HmdvwuFBthx0=\"}".to_string();
+//!   let password_phrase = "abcdefghi".to_string();
+//!   let plaintext = decrypt_raw(data, password_phrase)?;
+//!   assert_eq!("test\ntest".to_string(), plaintext);
+//! # Ok(())
 //! # }
 //! ```
 //!
-//! This will give you the plaintext `test\ntest`.
 extern crate base64;
 
 use aes::{Aes128, Aes192, Aes256};
@@ -41,7 +38,7 @@ use snafu::Snafu;
 pub enum SjclError {
     #[snafu(display("Failed to decrypt chunk: {}", message))]
     DecryptionError { message: String },
-    #[snafu(display("Method is not yet implemented"))]
+    #[snafu(display("Method is not implemented"))]
     NotImplementedError,
 }
 
@@ -65,6 +62,12 @@ type AesCcm128 = Ccm<Aes128, U8, U13>;
 type AesCcm192 = Ccm<Aes192, U8, U13>;
 
 /// Decrypts a chunk of SJCL encrypted JSON with a given passphrase.
+/// ```rust
+/// let data = "{\"iv\":\"nJu7KZF2eEqMv403U2oc3w==\", \"v\":1, \"iter\":10000, \"ks\":256, \"ts\":64, \"mode\":\"ccm\", \"adata\":\"\", \"cipher\":\"aes\", \"salt\":\"mMmxX6SipEM=\", \"ct\":\"VwnKwpW1ah5HmdvwuFBthx0=\"}".to_string();
+/// let password_phrase = "abcdefghi".to_string();
+/// let plaintext = decrypt_raw(data, password_phrase)?;
+/// assert_eq!("test\ntest".to_string(), plaintext);
+/// ```
 pub fn decrypt_raw(chunk: String, key: String) -> Result<String, SjclError> {
     match serde_json::from_str(&chunk) {
         Ok(chunk) => decrypt(chunk, key),
@@ -96,6 +99,22 @@ fn truncate_iv(mut iv: Vec<u8>, output_size: usize, tag_size: usize) -> Vec<u8> 
 }
 
 /// Decrypts a chunk of SJCL encrypted JSON with a given passphrase.
+/// ```rust
+/// let data = SjclBlockJson {
+///   iv: "aDvOWpwgcF0S7YDvu3TrTQ==".to_string(),
+///   v: 1,
+///   iter: 1000,
+///   ks: 128,
+///   ts: 64,
+///   mode: "ccm".to_string(),
+///   adata: "".to_string(),
+///   cipher: "aes".to_string(),
+///   salt: "qpVeWJh4g1I=".to_string(),
+///   ct: "3F6gxac5V5k39iUNHubqEOHrxuZJqoX2zyws9nU=".to_string(),
+/// };
+/// let plaintext = decrypt(data, "abcdefghi".to_string());
+/// assert_eq!("but dogs are the best".to_string(), plaintext);
+/// ```
 pub fn decrypt(mut chunk: SjclBlockJson, key: String) -> Result<String, SjclError> {
     match chunk.cipher.as_str() {
         "aes" => {
@@ -112,7 +131,7 @@ pub fn decrypt(mut chunk: SjclBlockJson, key: String) -> Result<String, SjclErro
                         });
                     }
 
-                    let salt_str = match base64::decode(chunk.salt) {
+                    let salt = match base64::decode(chunk.salt) {
                         Ok(v) => SaltString::b64_encode(&v),
                         Err(_) => {
                             return Err(SjclError::DecryptionError {
@@ -120,7 +139,14 @@ pub fn decrypt(mut chunk: SjclBlockJson, key: String) -> Result<String, SjclErro
                             })
                         }
                     };
-                    let salt = salt_str.unwrap();
+                    let salt = match salt {
+                        Ok(s) => s,
+                        Err(_) => {
+                            return Err(SjclError::DecryptionError {
+                                message: "Failed to generate salt string".to_string(),
+                            })
+                        }
+                    };
                     let password_hash = Pbkdf2.hash_password(
                         key.as_bytes(),
                         None,
