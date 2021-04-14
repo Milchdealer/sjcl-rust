@@ -68,7 +68,7 @@ type AesCcm192 = Ccm<Aes192, U8, U13>;
 /// let plaintext = decrypt_raw(data, password_phrase)?;
 /// assert_eq!("test\ntest".to_string(), plaintext);
 /// ```
-pub fn decrypt_raw(chunk: String, key: String) -> Result<String, SjclError> {
+pub fn decrypt_raw(chunk: String, key: String) -> Result<Vec<u8>, SjclError> {
     match serde_json::from_str(&chunk) {
         Ok(chunk) => decrypt(chunk, key),
         Err(_) => {
@@ -115,7 +115,7 @@ fn truncate_iv(mut iv: Vec<u8>, output_size: usize, tag_size: usize) -> Vec<u8> 
 /// let plaintext = decrypt(data, "abcdefghi".to_string());
 /// assert_eq!("but dogs are the best".to_string(), plaintext);
 /// ```
-pub fn decrypt(mut chunk: SjclBlockJson, key: String) -> Result<String, SjclError> {
+pub fn decrypt(mut chunk: SjclBlockJson, key: String) -> Result<Vec<u8>, SjclError> {
     match chunk.cipher.as_str() {
         "aes" => {
             match chunk.mode.as_str() {
@@ -205,7 +205,7 @@ pub fn decrypt(mut chunk: SjclBlockJson, key: String) -> Result<String, SjclErro
                                     });
                                 }
                             };
-                            Ok(String::from_utf8(plaintext).unwrap())
+                            Ok(plaintext)
                         }
                         192 => {
                             let key: &GenericArray<u8, U24> =
@@ -219,7 +219,7 @@ pub fn decrypt(mut chunk: SjclBlockJson, key: String) -> Result<String, SjclErro
                                     });
                                 }
                             };
-                            Ok(String::from_utf8(plaintext).unwrap())
+                            Ok(plaintext)
                         }
                         128 => {
                             let key: &GenericArray<u8, U16> =
@@ -233,7 +233,7 @@ pub fn decrypt(mut chunk: SjclBlockJson, key: String) -> Result<String, SjclErro
                                     });
                                 }
                             };
-                            Ok(String::from_utf8(plaintext).unwrap())
+                            Ok(plaintext)
                         }
                         _ => Err(SjclError::NotImplementedError),
                     }
@@ -258,7 +258,7 @@ mod tests {
 
         let plaintext = "test\ntest".to_string();
 
-        assert_eq!(decrypt_raw(data, password_phrase).unwrap(), plaintext);
+        assert_eq!(String::from_utf8(decrypt_raw(data, password_phrase).unwrap()).unwrap(), plaintext);
     }
 
     #[test]
@@ -279,7 +279,7 @@ mod tests {
 
         let plaintext = "test\ntest".to_string();
 
-        assert_eq!(decrypt(data, password_phrase).unwrap(), plaintext);
+        assert_eq!(String::from_utf8(decrypt(data, password_phrase).unwrap()).unwrap(), plaintext);
     }
 
     #[test]
@@ -289,7 +289,7 @@ mod tests {
 
         let plaintext = "cats are cute".to_string();
 
-        assert_eq!(decrypt_raw(data, password_phrase).unwrap(), plaintext);
+        assert_eq!(String::from_utf8(decrypt_raw(data, password_phrase).unwrap()).unwrap(), plaintext);
     }
 
     #[test]
@@ -310,7 +310,7 @@ mod tests {
 
         let plaintext = "cats are cute".to_string();
 
-        assert_eq!(decrypt(data, password_phrase).unwrap(), plaintext);
+        assert_eq!(String::from_utf8(decrypt(data, password_phrase).unwrap()).unwrap(), plaintext);
     }
 
     #[test]
@@ -320,7 +320,7 @@ mod tests {
 
         let plaintext = "but dogs are the best".to_string();
 
-        assert_eq!(decrypt_raw(data, password_phrase).unwrap(), plaintext);
+        assert_eq!(String::from_utf8(decrypt_raw(data, password_phrase).unwrap()).unwrap(), plaintext);
     }
 
     #[test]
@@ -341,6 +341,6 @@ mod tests {
 
         let plaintext = "but dogs are the best".to_string();
 
-        assert_eq!(decrypt(data, password_phrase).unwrap(), plaintext);
+        assert_eq!(String::from_utf8(decrypt(data, password_phrase).unwrap()).unwrap(), plaintext);
     }
 }
