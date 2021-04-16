@@ -12,10 +12,10 @@
 //! use sjcl::{decrypt_raw, SjclError};
 //! 
 //! # fn main() -> Result<(), SjclError> {
-//!   let data = "{\"iv\":\"nJu7KZF2eEqMv403U2oc3w==\", \"v\":1, \"iter\":10000, \"ks\":256, \"ts\":64, \"mode\":\"ccm\", \"adata\":\"\", \"cipher\":\"aes\", \"salt\":\"mMmxX6SipEM=\", \"ct\":\"VwnKwpW1ah5HmdvwuFBthx0=\"}".to_string();
-//!   let password_phrase = "abcdefghi".to_string();
-//!   let plaintext = decrypt_raw(data, password_phrase)?;
-//!   assert_eq!("test\ntest".to_string(), plaintext);
+//! let data = "{\"iv\":\"nJu7KZF2eEqMv403U2oc3w==\", \"v\":1, \"iter\":10000, \"ks\":256, \"ts\":64, \"mode\":\"ccm\", \"adata\":\"\", \"cipher\":\"aes\", \"salt\":\"mMmxX6SipEM=\", \"ct\":\"VwnKwpW1ah5HmdvwuFBthx0=\"}".to_string();
+//! let password_phrase = "abcdefghi".to_string();
+//! let plaintext = decrypt_raw(data, password_phrase)?;
+//! assert_eq!("test\ntest".to_string(), String::from_utf8(plaintext).unwrap());
 //! # Ok(())
 //! # }
 //! ```
@@ -66,7 +66,7 @@ type AesCcm192 = Ccm<Aes192, U8, U13>;
 /// let data = "{\"iv\":\"nJu7KZF2eEqMv403U2oc3w==\", \"v\":1, \"iter\":10000, \"ks\":256, \"ts\":64, \"mode\":\"ccm\", \"adata\":\"\", \"cipher\":\"aes\", \"salt\":\"mMmxX6SipEM=\", \"ct\":\"VwnKwpW1ah5HmdvwuFBthx0=\"}".to_string();
 /// let password_phrase = "abcdefghi".to_string();
 /// let plaintext = decrypt_raw(data, password_phrase)?;
-/// assert_eq!("test\ntest".to_string(), plaintext);
+/// assert_eq!("test\ntest".to_string(), String::from_utf8(plaintext).unwrap());
 /// ```
 pub fn decrypt_raw(chunk: String, key: String) -> Result<Vec<u8>, SjclError> {
     match serde_json::from_str(&chunk) {
