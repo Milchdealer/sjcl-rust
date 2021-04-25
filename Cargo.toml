@@ -1,7 +1,7 @@
 [package]
 name = "sjcl"
 description = "Library which supports decrypting data that was encrypted using SJCL"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Teraku <teraku@teraku.de>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -18,6 +18,6 @@ pbkdf2 = { version = "0.7.4", features = ["simple"] }
 password-hash = "0.1.2"
 ccm = "0.3.0"
 aes = "0.6.0"
-snafu = "0.6.10"
+thiserror = "1.0"
 base64 = "0.13.0"
 ascii = "1.0.0"

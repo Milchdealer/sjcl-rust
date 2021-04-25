@@ -33,12 +33,12 @@ use pbkdf2::{Params, Pbkdf2};
 use serde::Deserialize;
 use serde_json;
 
-use snafu::Snafu;
-#[derive(Debug, Snafu)]
+use thiserror::Error;
+#[derive(Error, Debug)]
 pub enum SjclError {
-    #[snafu(display("Failed to decrypt chunk: {}", message))]
+    #[error("Failed to decrypt chunk: {message:?}")]
     DecryptionError { message: String },
-    #[snafu(display("Method is not implemented"))]
+    #[error("Method is not implemented")]
     NotImplementedError,
 }
 
